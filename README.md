@@ -25,6 +25,14 @@ An **agent loop** is the core of agentic AI: an LLM assembles context, reasons t
 - [Production Hardening](#production-hardening)
 - [Loop Libraries and Frameworks](#loop-libraries-and-frameworks)
 - [Use Cases and Examples](#use-cases-and-examples)
+  - [Monitoring Loop (Cron)](#monitoring-loop-cron)
+  - [Issue Triage Loop (Event-Driven)](#issue-triage-loop-event-driven)
+  - [Research Loop (Manual + ReAct)](#research-loop-manual--react)
+  - [Coding Agent Loop (Write → Test → Fix)](#coding-agent-loop-write--test--fix)
+  - [SQL Analyst Loop (Question → Query → Answer)](#sql-analyst-loop-question--query--answer)
+  - [Content Generation Loop (Draft → Critique → Revise)](#content-generation-loop-draft--critique--revise)
+  - [Sales Outreach Loop (Research → Personalize → Send)](#sales-outreach-loop-research--personalize--send)
+  - [ReWOO Loop (Plan All Tools Upfront)](#rewoo-loop-plan-all-tools-upfront)
 - [Academic Papers](#academic-papers)
 - [Further Reading](#further-reading)
 
@@ -338,6 +346,9 @@ Complex systems nest loops:
 | [n8n](https://github.com/n8n-io/n8n) | Visual workflow loops with 400+ integrations; manual, schedule, and webhook triggers | Manual, cron, event |
 | [AgenticFlow](https://docs.agenticflow.ai) | Agent workflow platform; webhook + cron/schedule triggers | Cron, event (webhook) |
 | [GitHub Agentic Workflows](https://github.github.com/gh-aw) | GitHub-native agentic loops triggered by repo events, schedules, or manually | Manual, cron, event |
+| [langchain-ai/react-agent](https://github.com/langchain-ai/react-agent) | Reference two-node LangGraph ReAct template; basis for most LangGraph agent loops | Manual |
+| [SWE-agent/mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent) | ~100-line Python coding agent loop; 74% SWE-bench Verified; minimal reference implementation | Manual |
+| [langchain-ai/langgraph-reflection](https://github.com/langchain-ai/langgraph-reflection) | Generate-reflect-revise content loop; loops while critiques list is non-empty | Manual |
 
 ---
 
@@ -443,6 +454,89 @@ Agent attempts a coding challenge, reflects on failure, improves on next attempt
 Episode 1: attempt("sort list without built-ins") → wrong output
 Reflect:   "I used a comparison that failed on equal elements. Use stable sort."
 Episode 2: attempt + reflection context → correct output ✓
+```
+
+---
+
+### Coding Agent Loop (Write → Test → Fix)
+
+Agent writes code, runs tests, reads errors, fixes — loops until tests pass. See [examples/coding-agent-loop.md](examples/coding-agent-loop.md).
+
+**Real implementations:** [langchain-ai/react-agent](https://github.com/langchain-ai/react-agent) (two-node LangGraph), [SWE-agent/mini-swe-agent](https://github.com/SWE-agent/mini-swe-agent) (~100 lines, 74% SWE-bench Verified)
+
+```
+Turn 1: write_file("solution.py", code_draft)
+Turn 2: bash("pytest tests/") → 3 failures
+Turn 3: read_file("solution.py") + read error output
+Turn 4: write_file("solution.py", fixed_code)
+Turn 5: bash("pytest tests/") → all pass → done (no tool_calls emitted)
+```
+
+---
+
+### SQL Analyst Loop (Question → Query → Answer)
+
+Agent translates a natural language question to SQL, executes it, retries on errors (capped at 3). See [examples/sql-analyst-loop.md](examples/sql-analyst-loop.md).
+
+**Real implementations:** [mallahyari/langgraph-sql-agent](https://github.com/mallahyari/langgraph-sql-agent), [adamfaik/sql-agent](https://github.com/adamfaik/sql-agent)
+
+```
+Question: "Which customers had the highest spend last month?"
+→ generate_sql → SELECT customer_id, SUM(amount)... → execute
+→ Error: column 'amount' doesn't exist (retry_count=1)
+→ generate_sql (with error context) → SELECT customer_id, SUM(total)... → execute
+→ Result: [(C001, 4500), (C007, 3200)] → analyze → "Customer C001 spent $4,500"
+```
+
+---
+
+### Content Generation Loop (Draft → Critique → Revise)
+
+Generator LLM drafts; critic LLM lists issues; loop until critique is empty. See [examples/content-generation-loop.md](examples/content-generation-loop.md).
+
+**Real implementation:** [langchain-ai/langgraph-reflection](https://github.com/langchain-ai/langgraph-reflection)
+
+```
+Draft 1 → Critique: ["Missing evidence for claim X", "Section 3 contradicts section 1"]
+Draft 2 → Critique: ["Section 1/3 reconciled but new contradiction in conclusion"]  
+Draft 3 → Critique: [] ← empty → publish
+```
+
+---
+
+### Sales Outreach Loop (Research → Personalize → Send)
+
+Researches each prospect, writes a personalized message, tracks engagement, sends follow-ups. See [examples/sales-outreach-loop.md](examples/sales-outreach-loop.md).
+
+**Real implementation:** [kaymen99/sales-outreach-automation-langgraph](https://github.com/kaymen99/sales-outreach-automation-langgraph)
+
+```
+Prospect: Sarah Chen, VP Eng @ DataCo
+→ research(company_site, news, job_postings)
+→ identify_pain_points: ["scaling BI as headcount doubles post-Series B"]
+→ personalize_message: references Series B + hiring surge
+→ send → track → (no reply after 3 days) → write_followup → send
+→ (reply received) → stop loop, route to human SDR
+```
+
+---
+
+### ReWOO Loop (Plan All Tools Upfront)
+
+Planner generates ALL tool calls upfront; executor runs them (in parallel if independent); solver synthesizes results. Only 2 LLM calls regardless of tool count. See [examples/rewoo-loop.md](examples/rewoo-loop.md).
+
+**Real implementation:** [LangGraph ReWOO tutorial](https://github.com/langchain-ai/langgraph/blob/main/docs/docs/tutorials/rewoo/rewoo.ipynb)
+
+```
+Planner:  #E1 = search("CEO of Apple")
+          #E2 = search("net worth of #E1")
+          #E3 = calculate("#E2 / 1000000")
+
+Execute:  #E1 → "Tim Cook"
+          #E2 → "Tim Cook net worth $2.2B" 
+          #E3 → "2200"
+
+Solver:   "The CEO of Apple is Tim Cook with a net worth of approximately $2.2B"
 ```
 
 ---
